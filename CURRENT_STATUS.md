@@ -3,7 +3,7 @@
 **Обновлено:** 12 августа 2026
 
 ## Текущая фаза
-Phase 0 — Project Foundation: документальный baseline завершён, **Task 0.1 (инициализация репозитория) завершена**
+Phase 0 — Project Foundation: **Task 0.1 завершена, Task 0.2 частично завершена** (структура и код готовы, runtime-верификация заблокирована окружением)
 
 ## Завершено
 - Полная архитектурная и продуктовая спецификация (45 документов в `/docs`)
@@ -12,13 +12,14 @@ Phase 0 — Project Foundation: документальный baseline завер
 - Технологический стек MVP выбран и обоснован по 10-пунктному чек-листу (`DECISIONS.md`, D-0001)
 - Независимый review от ChatGPT получен и принят: architecture/stack/DB/async/deployment/AI abstraction/documentation — все GREEN. Instagram/Auth boundary — YELLOW, требует отдельной проверки перед Phase 3 (`DECISIONS.md`, D-0003)
 - Обязательные архитектурные границы из review закреплены в `CLAUDE.md` §4.1
-- **Task 0.1: git-репозиторий создан (local + remote GitHub, `origin/main`, история запушена), базовая структура папок на месте — `/docs`, `/src`, `/tests`**
+- Task 0.1: git-репозиторий создан (local + remote GitHub, `origin/main`, история запушена), базовая структура папок на месте — `/docs`, `/src`, `/tests`
+- **Task 0.2: Next.js + TypeScript + Prisma scaffolding создан. Структура `/src` физически отражает слои (`data/analysis/knowledge/decision/ai/storage/integrations/learning` + `app/` как UI/API layer). Обязательные абстракции реализованы: `AIProvider`/`AIService` (единственный импорт `@anthropic-ai/sdk` — в `src/ai/providers/anthropic.ts`), `ObjectStorageService` (единственный импорт AWS S3 SDK — в `src/storage/providers/r2.ts`), Prisma Client singleton в `src/data/`, `ExternalIntegration` — пустая заготовка до Task 3.0**
 
 ## В работе
-Task 0.2 — настройка технического стека (Next.js + TypeScript, Prisma, структура папок по слоям, обязательные абстракции из `CLAUDE.md` §4.1).
+Task 0.2 — verification: `npm install` / `npm run dev` не выполнены — в этом окружении (Claude Code сессия) отсутствуют Node.js/npm/Homebrew. Требуется действие Olga (см. «Заблокировано»).
 
 ## Заблокировано
-Нет
+Task 0.2 verification — нужен Node.js в рабочем окружении. Olga устанавливает Homebrew + Node вручную (агент не выполняет `curl | bash` даже с разрешения — см. CLAUDE.md §8 и системные safety-правила про downloading/executing untrusted scripts). После установки — попросить агента прогнать `npm install` и `npm run dev` для финальной верификации Definition of Done.
 
 ## Известные проблемы / отложено (не блокирует Phase 0)
 - `06_RECOMMENDATION_ENGINE.md` считается superseded от `13_RECOMMENDATION_ENGINE.md`
@@ -27,7 +28,7 @@ Task 0.2 — настройка технического стека (Next.js + T
 - PDF-приложения — материалы бренд-войса, не архитектурная документация
 
 ## Текущее окружение
-Репозиторий создан (local + GitHub remote `origin/main`). Local dev / staging / production ещё не созданы.
+Репозиторий создан (local + GitHub remote `origin/main`). В сессии Claude Code, где выполнялась структурная часть Task 0.2, нет Node.js/npm/Homebrew — `npm install`/`npm run dev` не запускались, package.json не проверен фактической установкой зависимостей. Local dev / staging / production ещё не созданы.
 
 ## Следующая рекомендованная задача
-Task 0.2 — Настройка технического стека: инициализировать Next.js + TypeScript, подключить Prisma, создать структуру папок по слоям (Data/Analysis/Knowledge/Decision/AI/UI) и обязательные абстракции из `CLAUDE.md` §4.1.
+Завершить верификацию Task 0.2 (`npm install`, `npm run dev`, `npx tsc --noEmit`) после установки Node.js — затем Task 0.3 (окружения и конфигурация).

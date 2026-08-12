@@ -11,6 +11,10 @@
 - Операционные файлы: `CLAUDE.md`, `CURRENT_STATUS.md`, `TASKS.md`, `DECISIONS.md`, `CHANGELOG.md`
 - D-0001: выбор технологического стека MVP (Next.js + TypeScript, PostgreSQL, Prisma, BullMQ/Redis, Auth.js, Anthropic Claude API, R2, Sentry)
 - Task 0.1: базовая структура репозитория — `/src` и `/tests` (с пояснительными README, заполняются в Task 0.2/0.5); подтверждена связь local ↔ GitHub remote (`origin/main`)
+- Task 0.2: Next.js 15 (App Router) + TypeScript + Prisma scaffolding — `package.json`, `tsconfig.json`, `next.config.mjs`, `.eslintrc.json`, `prisma/schema.prisma` (datasource-only, сущности — Task 1.1)
+- Task 0.2: структура `/src` по слоям — `data/`, `analysis/`, `knowledge/`, `decision/`, `ai/`, `storage/`, `integrations/`, `learning/`, `app/` (UI + API layer)
+- Task 0.2: обязательные абстракции из CLAUDE.md §4.1 — `AIProvider`/`AIService` (`src/ai/`, единственный импорт `@anthropic-ai/sdk` изолирован в `providers/anthropic.ts`), `ObjectStorageService` (`src/storage/`, единственный импорт AWS S3 SDK изолирован в `providers/r2.ts`), Prisma Client singleton (`src/data/prismaClient.ts`), `ExternalIntegration` — пустой интерфейс до Task 3.0
+- `.env.example` с плейсхолдерами (`DATABASE_URL`, `ANTHROPIC_API_KEY`, R2-переменные) — полная схема окружений в Task 0.3
 
 ### Changed
 - D-0001 пересмотрено: исходное решение принято без систематической проверки, переделано по 10-пунктному чек-листу с построчным чтением всех 46 документов
@@ -27,3 +31,6 @@
 - Стек и документация подтверждены без пересмотра: architecture/stack/DB/async/deployment/AI abstraction/documentation — все GREEN
 - Instagram/Auth boundary помечен YELLOW — добавлена обязательная задача технической проверки перед Phase 3 (Task 3.0)
 - В CLAUDE.md добавлен §4.1: обязательные архитектурные границы (App Auth vs Instagram Integration, AI_SERVICE→AI_PROVIDER_ADAPTER, инфраструктурные абстракции, layer discipline, async processing требования, гранулярность DECISIONS.md)
+
+### Known issues
+- Task 0.2 не верифицирована `npm install` / `npm run dev` — в текущей Claude Code сессии нет Node.js/npm/Homebrew. Требуется установка Node.js в рабочем окружении Olga и повторный прогон агентом.

@@ -1,0 +1,11 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// Сущности (User, Goal, Content, ...) добавляются в Task 1.1 —
+// см. TASKS.md, 18_DATA_MODEL.md, 22_DATA_MODEL.md, 25_DATABASE_SCHEMA.md.
