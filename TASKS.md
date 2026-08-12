@@ -20,6 +20,7 @@
 **Цель:** development и staging окружения, структура `.env`, secrets management вне git.
 **Спецификация:** `30_SECURITY_PRIVACY.md` §62–63; `46_PRODUCTION_OPERATIONS_AND_RELIABILITY.md` §3–4.
 **Готово, когда:** dev и staging изолированы по credentials и конфигурации.
+**Статус:** repo-часть готова — `ENVIRONMENTS.md` (стратегия трёх окружений, правило изоляции), расширенный `.env.example`, `.gitignore` подтверждён. Инфраструктурная часть (реальные Vercel/Neon/Upstash/R2 ресурсы для staging/production) не создана — требует доступа Olga к внешним дашбордам, Claude Code не имеет соответствующих аккаунтов/API-ключей.
 
 ### Task 0.4 — Базовый CI
 **Цель:** GitHub Actions pipeline (lint, type-check, tests, build) на каждый PR.
