@@ -25,6 +25,7 @@
 **Цель:** GitHub Actions pipeline (lint, type-check, tests, build) на каждый PR.
 **Спецификация:** `46_PRODUCTION_OPERATIONS_AND_RELIABILITY.md` §7; `35_TESTING_QUALITY_CONTROL.md` §53.
 **Готово, когда:** PR не мержится при падении критичных проверок.
+**Важно:** при `npm install` в CI (как и локально при верификации Task 0.2) `@prisma/client`-postinstall не всегда генерирует клиент автоматически (наблюдалось из-за `allow-scripts`-политики npm). CI pipeline должен явно включать шаг `npx prisma generate` перед `type-check`/`build` — иначе сборка будет падать на отсутствии сгенерированного Prisma Client.
 
 ### Task 0.5 — Инициализация тестового фреймворка
 **Цель:** настроить Vitest (unit/integration) и Playwright (E2E), по одному smoke-тесту на каждый.
