@@ -115,6 +115,10 @@ idempotency · retry policy · job deduplication · concurrency control · rate 
 
 **Гранулярность DECISIONS.md.** Не каждое техническое решение — architecture decision. «PostgreSQL вместо MongoDB» — да. Версия библиотеки или мелкая implementation-деталь — нет. В DECISIONS.md попадает то, что влияет на структуру, поведение или долгосрочное направление системы.
 
+**Git push — GREEN по умолчанию (D-0004).** Обычный `git push` без `--force` в конце завершённой и закоммиченной задачи — GREEN: выполняется как часть Definition of Done, без подтверждения Olga. Подтверждение обязательно только для:
+- force push (`--force`, `--force-with-lease`) или любого переписывания истории (`rebase`, `filter-branch` и т.п.) на опубликованных коммитах,
+- push, затрагивающего что-либо за пределами кода коммита — релизы, теги, production-конфигурацию, деплой-триггеры.
+
 ---
 
 ## 5. Конвенции репозитория
