@@ -1,0 +1,112 @@
+# DECISIONS.md
+
+Каждое значимое решение фиксируется здесь: контекст, рассмотренные варианты, выбор, причина, последствия. Принятое решение уважается будущей реализацией, пока не отменено явно новым решением.
+
+---
+
+## D-0001 — Технологический стек MVP
+
+**Дата:** 12 августа 2026 (пересмотрено после полного документального аудита)
+**Статус:** Принято (YELLOW — техническое, обратимое, не product-decision)
+
+**Процесс.** Первая версия этого решения (та же дата, более раннее время) была принята без систематической проверки — по принципу «стандартная технология». Это было явно указано как недопустимое: *«STANDARD TECHNOLOGY ≠ AUTOMATICALLY CORRECT TECHNOLOGY»*. Решение переделано по чек-листу из 10 пунктов, с фактическим построчным чтением всех 46 архитектурных документов, а не по памяти.
+
+**1. Прочитана вся релевантная документация.** Все документы `/docs` (46 файлов, включая парные/похожие) прочитаны целиком, не выборочно. Список — в разделе «Аудит документации» ниже.
+
+**2. Реальные требования системы (извлечены из документов, не предположены):**
+- Модульные слои DATA → ANALYSIS → KNOWLEDGE → DECISION → AI → UI → LEARNING, каждый заменяемый (`23_SYSTEM_ARCHITECTURE.md`, `17_SYSTEM_ARCHITECTURE_MAP.md`)
+- AI provider обязан быть абстрагирован через `AI_SERVICE → AI_PROVIDER_ADAPTER`, с поддержкой vision-моделей для анализа визуального контента (`29_AI_LAYER.md` §2-9, `04_ANALYTICAL_ENGINE.md` §8-9 — карусели и Reels требуют визуального анализа)
+- Структурированный AI-output с валидацией, версионированием prompt/model (`29_AI_LAYER.md` §11, §22-23)
+- Асинхронная обработка через job queue для sync/анализа/AI (`24_TECHNICAL_ARCHITECTURE.md` §21-22, `31_INFRASTRUCTURE_DEPLOYMENT.md` §11-15)
+- Реляционная БД с версионированными миграциями, множественными связанными сущностями (`25_DATABASE_SCHEMA.md` §67, `18_DATA_MODEL.md`, `22_DATA_MODEL.md`)
+- Object storage отдельно от реляционной БД для медиа (`31_INFRASTRUCTURE_DEPLOYMENT.md` §17, `38_COST_SCALABILITY_MODEL.md` §17)
+- REST API с версионированием, OpenAPI-совместимой документацией, async job pattern (`27_API_CONTRACTS.md`, весь документ — 72 пункта, детальный контракт уже специфицирован)
+- Observability: структурированные логи, метрики, error tracking, AI cost/latency tracking (`36_OBSERVABILITY_MONITORING.md` §72 MVP-минимум)
+- Push/email/in-app notifications (`34_NOTIFICATIONS.md`)
+
+**3. Ограничения integrations.** Основная интеграция — Instagram (`08_METRICS_FRAMEWORK.md`). Instagram Graph API требует: OAuth2, business/creator аккаунт на стороне пользователя, rate limits, не всегда webhook-поддержка → нужен polling + incremental sync (`26_DATA_PIPELINE.md`, `38_COST_SCALABILITY_MODEL.md` §25-26).
+
+**4. Data model.** Сильно реляционная модель (User→Goal→Content→ContentFeature→Performance→Pattern→Recommendation→Decision→Outcome, множественные FK, история изменений) — не документная и не graph-модель. Реляционная БД подходит напрямую (`18_DATA_MODEL.md`, `25_DATABASE_SCHEMA.md`).
+
+**5. Authentication.** Нужен свой account-слой + OAuth-поток для внешней платформы (`27_API_CONTRACTS.md` §5, `30_SECURITY_PRIVACY.md` §69).
+
+**6. AI provider abstraction.** Проверено на соответствие `29_AI_LAYER.md`: провайдер должен поддерживать text + vision, structured output, capability registry. Anthropic Claude API удовлетворяет этим требованиям на сегодня; выбор провайдера отделён от бизнес-логики интерфейсом `AIProvider`, так что смена провайдера в будущем не требует переписывания Recommendation Engine — это прямое архитектурное требование, не предпочтение.
+
+**7. Deployment requirements.** MVP-инфраструктура по `31_INFRASTRUCTURE_DEPLOYMENT.md` §10-11: frontend → backend API → database + отдельный background worker. Cloud provider архитектурно не обязателен (§61) — выбор конкретного хостинга это отдельное решение внутри уже выбранного стека, не блокирующее сам стек.
+
+**8. Testing requirements.** Нужны unit/integration/API/E2E тесты, contract tests между frontend и backend, AI evaluation harness (`35_TESTING_QUALITY_CONTROL.md`, `27_API_CONTRACTS.md` §49).
+
+**9. Рассмотренные альтернативы:**
+- **Next.js (TS) монорепо + PostgreSQL + Prisma** — выбрано
+- **NestJS backend + отдельный React/Vite frontend** — даёт более строгое DI-разделение слоёв «из коробки», но для соло-разработки означает два деплоя, два CI-пайплайна, больше инфраструктурной поверхности без явной пользы на MVP-стадии
+- **Python (FastAPI) backend** — сильнее для будущих ML/data-science задач (если Content Analysis Engine когда-то потребует собственные модели, а не только вызовы AI provider), но два языка в соло-проекте увеличивают нагрузку на поддержку; сегодня вся «интеллектуальная» работа идёт через внешний AI provider API, а не через собственные ML-модели, поэтому преимущество Python не реализуется на MVP-стадии
+
+**10. Оценка последствий:** Next.js/TS выбор принят. Главное следствие — логическое разделение слоёв (Data/Analysis/Knowledge/Decision/AI/UI) не обеспечивается физической границей процессов, а держится только дисциплиной структуры папок и code review. Это явно разрешено `23_SYSTEM_ARCHITECTURE.md` §72 (MVP_ARCHITECTURE), но это осознанный компромисс, а не бесплатный выбор — если дисциплина нарушится, слои начнут смешиваться незаметно (см. §13 ARCHITECTURAL DRIFT в операционных правилах). Зафиксировано в `CLAUDE.md` как обязательное правило структуры.
+
+**Итоговый стек:**
+- Язык: TypeScript везде
+- Frontend + Backend: Next.js (App Router), монорепо
+- БД: PostgreSQL, ORM/миграции: Prisma
+- Очередь/воркеры: BullMQ + Redis
+- Аутентификация: Auth.js (+ OAuth для Instagram)
+- Object storage: S3-совместимое (Cloudflare R2) через `ObjectStorageService`-абстракцию — не прямые вызовы provider SDK по коду (`31_INFRASTRUCTURE_DEPLOYMENT.md` §62)
+- AI provider: Anthropic Claude API через `AIProvider`-интерфейс (text + vision), с capability registry на будущее для мультипровайдера
+- Observability: Sentry (errors), структурированные логи (pino) + Vercel logs, AI usage/cost tracking — свой слой поверх AI_SERVICE
+- Хостинг MVP: Vercel (app) + managed Postgres (Neon) + managed Redis (Upstash) + R2 — все за абстракциями, замена провайдера не должна требовать переписывания domain logic
+- CI: GitHub Actions
+- Тесты: Vitest (unit/integration), Playwright (E2E), contract tests для критичных endpoints
+
+**Последствия:** см. пункт 10. Стек пересматривается при появлении evidence против него (узкое место AI-пайплайна, рост стоимости managed-сервисов и т.д.), а не по личному предпочтению.
+
+---
+
+## D-0002 — Результаты документального аудита и иерархия документов
+
+**Дата:** 12 августа 2026
+**Статус:** Принято (YELLOW — документационная гигиена, не меняет продуктовый смысл)
+
+**Контекст.** В репозитории обнаружены две волны документации: ранняя (файлы `04`–`16`, частично на английском, более концептуальные) и поздняя (файлы `17`–`46`, на русском, значительно детальнее и архитектурно строже). Часть ранних документов тематически дублируется поздними. Проверка на противоречия была явно запрошена перед стартом реализации.
+
+**Находка 1 — реальный дубль.** `06_RECOMMENDATION_ENGINE.md` (8K, ранняя версия) и `13_RECOMMENDATION_ENGINE.md` (32K, поздняя версия) описывают один и тот же компонент. `13` полностью покрывает и расширяет `06`, за одним исключением: `06` содержит конкретную структуру ежедневного вывода (Daily Overview, секции A–F), которая не встречается дословно в `13`, но семантически покрыта `20_USER_JOURNEY.md` и `33_UX_USER_FLOWS.md`.
+**Решение:** `13` считается авторитетным источником по Recommendation Engine. `06` помечается как historical/superseded (не удаляется — файлы не удаляются без разрешения Olga), на него не следует ссылаться в новых задачах.
+
+**Находка 2 — сужение категорий, не противоречие.** Ранние документы (`05_GOAL_FRAMEWORK.md`, `08_METRICS_FRAMEWORK.md`, `09_PATTERN_DETECTION.md`, `10_STRATEGY_LIBRARY.md`) включают комментарии и репосты как равноправные цели/метрики. Поздние документы (`13`, `16_CONTENT_ANALYSIS_ENGINE.md` §12, `19_MVP_SCOPE.md` §17, `21_DECISION_LOGIC.md` §8) последовательно и единогласно исключают комментарии и репосты из основного recommendation layer, оставляя 4 категории: likes/followers/saves/reach.
+**Решение:** это не конфликт, а осознанное сужение scope в поздней архитектуре. Комментарии и репосты **собираются** как данные (`08_METRICS_FRAMEWORK.md` остаётся в силе для data collection), но **не участвуют** в primary recommendation categories. Зафиксировано явно, чтобы это не пришлось угадывать заново в середине реализации.
+
+**Находка 3 — существенное пересечение без противоречий (кандидаты на будущую консолидацию, не блокирует Phase 0):**
+- `35_TESTING_QUALITY_CONTROL.md` и `43_TESTING_AND_QUALITY_ASSURANCE.md` — оба про тестирование, пересекаются в CI/test environments/quality gates, но каждый содержит и уникальный материал (35: AI evaluation, data quality score, race conditions; 43: bug severity, release blockers, model/prompt/schema change process)
+- `31_INFRASTRUCTURE_DEPLOYMENT.md` и `37_DEPLOYMENT_RELEASE_STRATEGY.md` — 31 про инфраструктурные компоненты, 37 про процесс релиза; пересекаются в environments/rollback, но не противоречат
+- `19_MVP_SCOPE.md` и `41_MVP_SCOPE_AND_PRIORITIES.md` — на первый взгляд дубли по названию, на деле разные: 19 = что входит в MVP функционально, 41 = процесс принятия решений о приоритетах. Дублирования нет.
+- `20_USER_JOURNEY.md` и `33_UX_USER_FLOWS.md` — заметное пересечение в описании recommendation flow и outcome-статусов
+**Решение:** ни одна из этих пар не блокирует старт реализации — противоречий не найдено, только избыточность изложения. Рекомендуется объединить каждую пару в один документ на более позднем этапе (не Phase 0), если это не потребует решений, которые входят в компетенцию Olga.
+
+**Находка 4 — технический артефакт, не проблема репозитория.** Пять `.pdf`-файлов (`Brand_Voice__Personal_Profile.pdf`, `Swipe_File.pdf`, `The_Word.pdf`, `Полное_руководство.pdf`, `Полное_hуководство_дополнительно.pdf`) при попытке прочитать их как обычный PDF оказались ZIP-архивами с постраничными jpeg + txt + manifest.json. Это стандартный способ, которым среда предпросмотра индексирует PDF для поиска, а не повреждение файлов в репозитории Olga. Содержательно эти файлы — материалы личного бренд-войса и swipe-file для контента (не архитектурная документация), релевантны скорее для onboarding AI Assistant (`11_AI_ASISISTANT.md` §12, Option A: Upload Existing Materials), чем для Phase 0.
+
+**Находка 5 — пустой файл.** `First.md` — 0 байт. Не блокирует Phase 0, но стоит либо удалить (требует разрешения Olga — деструктивная операция), либо наполнить содержанием, если он задумывался как точка входа.
+
+**Итог аудита:** ни одно найденное расхождение не поднимается до уровня RED (не влияет на продуктовый смысл, не создаёт architecture conflict, не требует решения Olga). Все обработаны как YELLOW и задокументированы здесь. Полный список дубли-кандидатов сохранён для консолидации после MVP, не до него.
+
+---
+
+*(следующие решения добавляются по мере разработки, нумерация продолжается: D-0003…)*
+
+---
+
+## D-0003 — Независимый архитектурный review принят, границы закреплены как обязательные
+
+**Дата:** 12 августа 2026
+**Статус:** Принято
+
+**Контекст.** ChatGPT провёл независимый review D-0001 и D-0002 по правилам §10 `PROJECT_DEVELOPMENT_WORKFLOW_AND_AI_COLLABORATION.md` (review после завершения Phase 0).
+
+**Вердикт review:** Architecture GREEN, Technology choices GREEN, Database GREEN, Async processing GREEN, Deployment approach GREEN, AI provider abstraction GREEN (при условии строгой границы AI_SERVICE → AI_PROVIDER_ADAPTER), Documentation audit GREEN. Один пункт помечен YELLOW: **Instagram/Auth boundary** — требует отдельной технической проверки перед реализацией (актуальные требования Meta/Instagram API, permissions, token lifecycle).
+
+**Решение:** стек и документация не пересматриваются. Шесть ограничений из review приняты как обязательные архитектурные границы и внесены в `CLAUDE.md` §4.1:
+1. App Authentication и Instagram Integration — разные слои, не единый Auth.js provider
+2. AI_SERVICE → AI_PROVIDER_ADAPTER — обязательная граница, domain-слои не видят Anthropic SDK напрямую
+3. Deployment providers (Vercel/Neon/Upstash/R2) — только за абстракциями, не часть domain logic
+4. DECISIONS.md фиксирует только значимые архитектурные решения, не каждую implementation-деталь
+5. Layer discipline — нарушения границ слоёв должны быть явными в отчётах, не молчаливыми
+6. Async processing — обязательный набор требований (idempotency, retry, dedup, concurrency control, rate limiting, dead-letter) для каждого worker, особенно для Instagram sync и AI processing
+
+**Последствия:** перед реализацией Instagram-интеграции (Phase 3) добавлена обязательная задача технической проверки Meta/Instagram API (см. `TASKS.md`). Остальная реализация может начинаться без дополнительных согласований — это подтверждено независимым review, не только моей собственной оценкой.
